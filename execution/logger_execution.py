@@ -30,7 +30,11 @@ class LoggerExecution:
     def __init__(self, log_path: str = "logs/orders.log"):
         self.logger = logging.getLogger("execution")
         self.logger.setLevel(logging.INFO)
-        handler = logging.FileHandler(log_path)
+        # encoding="utf-8" là bắt buộc: mặc định trên Windows, FileHandler
+        # dùng codepage của hệ thống (thường là cp1252), không encode được
+        # tiếng Việt có dấu (ví dụ "cắt", "xuống") -> UnicodeEncodeError khi
+        # ghi log. Ép utf-8 để log luôn ghi đúng bất kể chạy trên OS nào.
+        handler = logging.FileHandler(log_path, encoding="utf-8")
         handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
         self.logger.addHandler(handler)
 

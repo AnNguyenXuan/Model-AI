@@ -14,6 +14,7 @@ def run_backtest(
     candles: List[Candle],
     ema_20_series: List[float],
     ema_50_series: List[float],
+    atr_series: List[float],
     engine: DecisionEngine,
     risk_manager: RiskManager,
     execution: LoggerExecution,
@@ -33,9 +34,11 @@ def run_backtest(
             ema_20=ema_20_series[i],
             ema_50=ema_50_series[i],
             rsi_14=None,
+            atr_14=atr_series[i],
         )
         signal = engine.decide(state)
-        order = risk_manager.build_order(signal, entry_price=candle.close)
+        order = risk_manager.build_order(signal, entry_price=candle.close,
+                                          atr_value=atr_series[i] or 0.0)
         result = execution.send_order(order, current_price=candle.close)
 
         results.append({
