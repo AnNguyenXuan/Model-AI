@@ -1,7 +1,7 @@
 # Cấu hình chung cho bot
 
 symbol: "BTCUSDT"
-timeframe: "15m"
+timeframe: "1h"
 
 data:
   source: "binance"          # nguồn dữ liệu, tuỳ bạn implement trong data/fetch.py
