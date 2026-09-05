@@ -46,8 +46,7 @@ def main():
     )
     ema_20 = ema(candles, 20)
     ema_50 = ema(candles, 50)
-    atr_14 = atr(candles, 14)
-
+    
     engine = build_decision_engine(cfg["decision"]["engine"])
     risk_manager = RiskManager(
         capital=cfg["backtest"]["initial_capital"],
@@ -58,11 +57,10 @@ def main():
     execution = LoggerExecution(log_path=cfg["execution"]["log_path"])
 
     if args.mode == "backtest":
-        results = run_backtest(candles, ema_20, ema_50, atr_14, engine, risk_manager, execution)
+        results = run_backtest(candles, ema_20, ema_50, engine, risk_manager, execution)
         print(f"Đã chạy backtest {len(results)} nến. Xem log lệnh tại {cfg['execution']['log_path']}")
     else:
         raise NotImplementedError("Live loop chưa implement — xem docs/roadmap.md giai đoạn 6.")
-
 
 if __name__ == "__main__":
     main()
