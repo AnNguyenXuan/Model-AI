@@ -6,6 +6,7 @@ Việc đó thuộc về `data/pipeline.py`.
 """
 import csv
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 import requests
@@ -13,7 +14,7 @@ import requests
 
 @dataclass
 class Candle:
-    timestamp: int  # epoch seconds
+    timestamp: int  # epoch seconds (UTC). Chỉ được format thành ngày giờ khi ghi/đọc CSV.
     open: float
     high: float
     low: float
@@ -28,6 +29,10 @@ _VALID_INTERVALS = {
     "1h", "2h", "4h", "6h", "8h", "12h",
     "1d", "3d", "1w", "1M",
 }
+
+# Định dạng ngày giờ dùng khi lưu CSV. Giờ UTC để khớp với timestamp gốc từ Binance.
+_TS_FORMAT = "%Y-%m-%d %H:%M:%S"
+
 
 def fetch_historical(
     symbol: str,
@@ -76,6 +81,27 @@ def fetch_historical(
     return all_candles[-lookback_bars:]
 
 
+# --- helpers định dạng thời gian ---
+
+def _ts_to_str(ts: int) -> str:
+    """Epoch giây (UTC) -> chuỗi 'YYYY-MM-DD HH:MM:SS' để lưu vào CSV."""
+    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime(_TS_FORMAT)
+
+
+def _str_to_ts(value: str) -> int:
+    """Chuỗi ngày giờ trong CSV -> epoch giây (UTC).
+
+    Hỗ trợ ngược với cache cũ: nếu giá trị vẫn là số epoch (từ file được
+    tạo trước khi có thay đổi này), parse thẳng thành int mà không lỗi.
+    """
+    value = value.strip()
+    try:
+        return int(value)
+    except ValueError:
+        dt = datetime.strptime(value, _TS_FORMAT).replace(tzinfo=timezone.utc)
+        return int(dt.timestamp())
+
+
 # --- helpers dùng bởi fetch_historical ---
 
 def _cache_path(symbol: str, timeframe: str, cache_dir: str) -> Path:
@@ -90,7 +116,7 @@ def _load_cache(path: Path) -> List[Candle]:
         reader = csv.DictReader(f)
         for row in reader:
             candles.append(Candle(
-                timestamp=int(row["timestamp"]),
+                timestamp=_str_to_ts(row["timestamp"]),
                 open=float(row["open"]),
                 high=float(row["high"]),
                 low=float(row["low"]),
@@ -106,7 +132,9 @@ def _save_cache(path: Path, candles: List[Candle]) -> None:
         writer = csv.DictWriter(f, fieldnames=_CSV_FIELDS)
         writer.writeheader()
         for c in candles:
-            writer.writerow(asdict(c))
+            row = asdict(c)
+            row["timestamp"] = _ts_to_str(c.timestamp)
+            writer.writerow(row)
 
 
 def _dedup_sorted(candles: List[Candle]) -> List[Candle]:
