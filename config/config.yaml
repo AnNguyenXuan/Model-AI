@@ -1,7 +1,7 @@
 # Cấu hình chung cho bot
 
 symbol: "BTCUSDT"
-timeframe: "5m"           # khung giờ biến động nhanh -> dùng cho trend_reversal
+timeframe: "30m"           # khung giờ biến động nhanh -> dùng cho trend_reversal
 
 data:
   source: "binance"          # nguồn dữ liệu, tuỳ bạn implement trong data/fetch.py
