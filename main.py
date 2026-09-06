@@ -17,6 +17,7 @@ from features.registry import build_features
 from decision.trend_reversal import TrendReversalEngine
 from risk.risk_manager import RiskManager
 from backtest.engine import run_backtest
+from features.feature_logger import log_features
 
 
 def load_config(path: str) -> dict:
@@ -48,7 +49,7 @@ def main():
     # Tính toàn bộ feature cần thiết dựa theo config.features.indicators —
     # không còn hardcode ema(candles, 20)/rsi(candles, 14)... trong main.py.
     features = build_features(candles, cfg["features"]["indicators"])
-
+    log_features(candles, features)  # -> logs/features.log
     engine = build_decision_engine(cfg)
     risk_manager = RiskManager(
         log_path=cfg.get("risk", {}).get("log_path", "logs/reversals.log")
@@ -65,6 +66,7 @@ def main():
         f"Đã chạy backtest {len(results)} nến, phát hiện {reversal_count} điểm đảo chiều. "
         f"Xem log tại {log_path}"
     )
+
 
 
 if __name__ == "__main__":

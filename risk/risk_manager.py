@@ -14,9 +14,10 @@ Khi cần lại size/SL/TP (xem docs/roadmap.md giai đoạn 2), bổ sung lại
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decision.base import Signal, Action
 
+VN_TZ = timezone(timedelta(hours=7)) 
 
 @dataclass
 class Order:
@@ -48,7 +49,7 @@ class RiskManager:
         backtest/live (candle.timestamp) — KHÔNG dùng datetime.now().
         """
         if signal.is_reversal:
-            candle_time = datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
+            candle_time = datetime.fromtimestamp(timestamp, tz=VN_TZ).isoformat()
             self.logger.info(
                 "[%s] Đảo chiều -> %s | %s",
                 candle_time, signal.action.value.upper(), signal.reason,

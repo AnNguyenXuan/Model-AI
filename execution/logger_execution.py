@@ -17,7 +17,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from risk.risk_manager import Order
 from decision.base import Action
+from datetime import timezone, timedelta
 
+VN_TZ = timezone(timedelta(hours=7))
 
 @dataclass
 class ExecutionResult:
@@ -44,7 +46,7 @@ class LoggerExecution:
 
         self.logger.info(
             "%s | action=%s size=%.6f entry=%.2f sl=%.2f tp=%.2f reason=%s",
-            datetime.utcnow().isoformat(),
+            datetime.now(VN_TZ).isoformat(),
             order.action.value,
             order.size,
             current_price,
