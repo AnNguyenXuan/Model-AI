@@ -27,6 +27,14 @@ class MarketState:
     atr_14: Optional[float]
     regime: str = "unknown"  # nhãn từ llm_filter, có thể bỏ qua nếu engine không dùng
 
+    # --- Mở rộng cho chiến lược "bắt sóng ngắn theo xu hướng vi mô" ---
+    # Có default=None nên KHÔNG phá các engine cũ (EmaCrossoverEngine) —
+    # những engine đó chỉ đọc ema_20/ema_50/rsi_14/atr_14 như trước.
+    ema_fast: Optional[float] = None   # EMA9 — xác định hướng vi mô
+    ema_mid: Optional[float] = None    # EMA21 — vùng giá hồi về để vào lệnh
+    rsi_fast: Optional[float] = None   # RSI chu kỳ ngắn (7-9) — timing điểm hồi
+    macd_hist: Optional[float] = None  # Histogram MACD (tuỳ chọn) — xác nhận lực đẩy
+
 
 @dataclass
 class Signal:
