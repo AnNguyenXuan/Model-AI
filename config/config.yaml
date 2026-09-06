@@ -1,36 +1,37 @@
 # Cấu hình chung cho bot
 
 symbol: "BTCUSDT"
-timeframe: "5m"           # khung giờ biến động nhanh -> dùng cho micro_trend_rsi
+timeframe: "5m"           # khung giờ biến động nhanh -> dùng cho trend_reversal
 
 data:
   source: "binance"          # nguồn dữ liệu, tuỳ bạn implement trong data/fetch.py
   lookback_bars: 500         # số nến lịch sử tải mỗi lần
 
+# Mỗi entry: alias tự đặt -> {func: tên hàm trong features/registry.py, ...tham số}
+# Alias PHẢI trùng tên field tương ứng trong decision/base.py::MarketState
+# để decision engine đọc được (xem backtest/engine.py).
 features:
-  indicators: ["ema_20", "ema_50", "rsi_14", "atr_14"]
+  indicators:
+    ema_fast:
+      func: ema
+      period: 9
+    ema_mid:
+      func: ema
+      period: 21
+    ema_slow:
+      func: ema
+      period: 50
+    rsi_fast:
+      func: rsi
+      period: 9
 
 decision:
-  engine: "micro_trend_rsi"  # rule_based | micro_trend_rsi | ml_classifier | rl_agent
-  micro_trend_rsi:
-    ema_fast_period: 9        # EMA9 - Lớp 1 trend filter
-    ema_mid_period: 21        # EMA21 - Lớp 1 trend filter + vùng hồi Lớp 2
-    rsi_fast_period: 7        # RSI ngắn - timing điểm hồi ở Lớp 2
-    macd_fast: 5               # MACD nhanh - Lớp 3 xác nhận lực đẩy (tuỳ chọn)
-    macd_slow: 13
-    macd_signal: 6
-    require_macd_confirmation: false   # true = bắt buộc MACD xác nhận trước khi vào lệnh
+  engine: "trend_reversal"   # trend_reversal | ml_classifier | rl_agent
 
 risk:
-  risk_per_trade_pct: 1.0    # % vốn rủi ro mỗi lệnh
-  atr_multiplier_sl: 2.0     # stop-loss = entry - ATR * multiplier
-  max_drawdown_pct: 20.0     # dừng bot nếu drawdown tổng vượt ngưỡng này
-
-execution:
-  mode: "log_only"           # log_only | live (live chưa implement)
-  log_path: "logs/orders.log"
+  log_path: "logs/reversals.log"   # nơi ghi log mỗi khi có điểm đảo chiều
 
 backtest:
   start_date: "2024-01-01"
   end_date: "2024-12-31"
-  initial_capital: 10000
+  initial_capital: 10000   # chưa dùng tới ở giai đoạn hiện tại (chưa có size/PnL)

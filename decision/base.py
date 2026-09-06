@@ -17,30 +17,37 @@ class Action(Enum):
     HOLD = "hold"
 
 
+class TrendState(Enum):
+    """
+    3 trạng thái thị trường duy nhất mà chiến lược đảo chiều
+    (decision/trend_reversal.py) sử dụng.
+    """
+    UPTREND = "uptrend"
+    DOWNTREND = "downtrend"
+    SIDEWAYS = "sideways"
+
+
 @dataclass
 class MarketState:
     """Trạng thái thị trường tại một thời điểm, đầu vào cho decision engine."""
     close: float
-    ema_20: Optional[float]
-    ema_50: Optional[float]
-    rsi_14: Optional[float]
-    atr_14: Optional[float]
-    regime: str = "unknown"  # nhãn từ llm_filter, có thể bỏ qua nếu engine không dùng
+    timestamp: int  # epoch giây (UTC) của nến — cần để risk log đúng thời điểm
 
-    # --- Mở rộng cho chiến lược "bắt sóng ngắn theo xu hướng vi mô" ---
-    # Có default=None nên KHÔNG phá các engine cũ (EmaCrossoverEngine) —
-    # những engine đó chỉ đọc ema_20/ema_50/rsi_14/atr_14 như trước.
-    ema_fast: Optional[float] = None   # EMA9 — xác định hướng vi mô
-    ema_mid: Optional[float] = None    # EMA21 — vùng giá hồi về để vào lệnh
-    rsi_fast: Optional[float] = None   # RSI chu kỳ ngắn (7-9) — timing điểm hồi
-    macd_hist: Optional[float] = None  # Histogram MACD (tuỳ chọn) — xác nhận lực đẩy
+    # --- Dùng bởi TrendReversalEngine (decision/trend_reversal.py) ---
+    ema_fast: Optional[float] = None   # EMA9  — Lớp 1: xác định trạng thái
+    ema_mid: Optional[float] = None    # EMA21 — Lớp 1: xác định trạng thái
+    ema_slow: Optional[float] = None   # EMA50 — Lớp 1: xác định trạng thái
+    rsi_fast: Optional[float] = None   # RSI9  — Lớp 2: xác nhận điểm đảo chiều
+
+    regime: str = "unknown"  # nhãn từ llm_filter, có thể bỏ qua nếu engine không dùng
 
 
 @dataclass
 class Signal:
     action: Action
-    confidence: float  # 0.0 - 1.0, dùng cho position sizing
-    reason: str         # để log, debug tại sao vào lệnh
+    confidence: float  # 0.0 - 1.0
+    reason: str          # để log, debug tại sao có tín hiệu
+    is_reversal: bool = False  # True nếu đây chính là nến xuất hiện điểm đảo chiều
 
 
 class DecisionEngine(ABC):
