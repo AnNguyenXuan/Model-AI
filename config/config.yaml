@@ -6,6 +6,10 @@ timeframe: "15m"           # khung giờ biến động nhanh -> dùng cho trend
 data:
   source: "binance"          # nguồn dữ liệu, tuỳ bạn implement trong data/fetch.py
   lookback_bars: 500         # số nến lịch sử tải mỗi lần
+  anchor_time: null          # null = lấy realtime; hoặc "YYYY-MM-DD HH:MM:SS" (UTC)
+                              # để cố định mốc, ví dụ: "2026-06-15 00:00:00"
+                              # --anchor-time truyền ở CLI sẽ ưu tiên hơn giá trị này
+  force_refresh: false        # true = bỏ qua cache CSV, luôn gọi lại API (chỉ áp dụng khi realtime)
 
 # Mỗi entry: alias tự đặt -> {func: tên hàm trong features/registry.py, ...tham số}
 # Alias PHẢI trùng tên field tương ứng trong decision/base.py::MarketState

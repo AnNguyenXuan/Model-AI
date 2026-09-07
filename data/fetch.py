@@ -21,6 +21,7 @@ class Candle:
     close: float
     volume: float
 
+
 BINANCE_KLINES_URL = "https://api.binance.com/api/v3/klines"
 DEFAULT_CACHE_DIR = "data/cache"
 _CSV_FIELDS = ["timestamp", "open", "high", "low", "close", "volume"]
@@ -34,20 +35,82 @@ _VALID_INTERVALS = {
 _TS_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
+@dataclass
+class DataRequest:
+    """
+    Cấu trúc chuẩn hoá tham số cho một lần lấy dữ liệu — dùng làm "hợp đồng"
+    giữa config.yaml/CLI và fetch_historical(), thay vì main.py phải tự tra
+    cfg["x"]["y"] rồi truyền theo vị trí.
+    """
+    symbol: str
+    timeframe: str
+    lookback_bars: int
+    anchor_time: Optional[datetime] = None
+    force_refresh: bool = False
+
+
+def build_data_request(
+    cfg: dict, anchor_time_override: Optional[datetime] = None
+) -> DataRequest:
+    """
+    Gom tham số cần cho fetch_historical từ config.yaml thành một DataRequest.
+
+    - anchor_time có thể khai báo trong config.yaml tại `data.anchor_time`
+      (chuỗi UTC dạng "YYYY-MM-DD HH:MM:SS") để cố định mốc lấy dữ liệu.
+    - anchor_time_override (thường lấy từ CLI --anchor-time) LUÔN ưu tiên
+      hơn giá trị trong config.yaml nếu được truyền vào.
+    - Không khai báo gì ở cả hai nơi -> anchor_time=None -> lấy realtime.
+    """
+    data_cfg = cfg["data"]
+
+    anchor_time = anchor_time_override
+    if anchor_time is None and data_cfg.get("anchor_time"):
+        anchor_time = datetime.strptime(
+            data_cfg["anchor_time"], _TS_FORMAT
+        ).replace(tzinfo=timezone.utc)
+
+    return DataRequest(
+        symbol=cfg["symbol"],
+        timeframe=cfg["timeframe"],
+        lookback_bars=data_cfg["lookback_bars"],
+        anchor_time=anchor_time,
+        force_refresh=data_cfg.get("force_refresh", False),
+    )
+
+
+def fetch_from_request(req: DataRequest) -> List[Candle]:
+    """Điểm gọi chuẩn cho main.py — nhận một DataRequest thay vì tham số rời."""
+    return fetch_historical(
+        symbol=req.symbol,
+        timeframe=req.timeframe,
+        lookback_bars=req.lookback_bars,
+        anchor_time=req.anchor_time,
+        force_refresh=req.force_refresh,
+    )
+
+
 def fetch_historical(
     symbol: str,
     timeframe: str,
     lookback_bars: int,
     cache_dir: str = DEFAULT_CACHE_DIR,
     force_refresh: bool = False,
+    anchor_time: Optional[datetime] = None,
 ) -> List[Candle]:
     """
-    Lấy `lookback_bars` nến gần nhất cho `symbol` ở khung `timeframe`.
+    Lấy `lookback_bars` nến gần nhất cho `symbol` ở khung `timeframe`, tính
+    lùi về từ `anchor_time`.
 
-    Logic cache: nếu file CSV tại `cache_dir/{symbol}_{timeframe}.csv` đã có
-    đủ `lookback_bars` nến (và không bật `force_refresh`) -> đọc thẳng từ
-    CSV, KHÔNG gọi Binance API. Ngược lại, chỉ gọi API để lấy phần còn
-    thiếu, gộp với cache cũ, loại trùng theo timestamp, rồi ghi đè lại CSV.
+    - anchor_time=None       -> REALTIME: tính từ hiện tại, dùng cache CSV
+      tại `cache_dir/{symbol}_{timeframe}.csv` (hành vi y hệt bản gốc).
+    - anchor_time=<datetime> -> THEO MỐC: tính lùi về từ đúng mốc đó, KHÔNG
+      dùng cache realtime (mỗi mốc cho kết quả khác nhau, dùng chung cache
+      sẽ trộn lẫn dữ liệu của các mốc khác nhau).
+
+    Logic cache (chỉ áp dụng nhánh realtime): nếu file CSV đã có đủ
+    `lookback_bars` nến (và không bật `force_refresh`) -> đọc thẳng từ CSV,
+    KHÔNG gọi Binance API. Ngược lại, chỉ gọi API để lấy phần còn thiếu,
+    gộp với cache cũ, loại trùng theo timestamp, rồi ghi đè lại CSV.
     """
     if timeframe not in _VALID_INTERVALS:
         raise ValueError(
@@ -55,6 +118,24 @@ def fetch_historical(
             f"Các giá trị hợp lệ: {sorted(_VALID_INTERVALS)}"
         )
 
+    # --- Nhánh THEO MỐC: không đụng tới cache realtime ---
+    if anchor_time is not None:
+        end_time_ms = int(anchor_time.timestamp() * 1000)
+        all_candles: List[Candle] = []
+        remaining = lookback_bars
+        while remaining > 0:
+            limit = min(remaining, 1000)
+            batch = _fetch_klines_from_api(symbol, timeframe, limit, end_time_ms)
+            if not batch:
+                break
+            all_candles = batch + all_candles
+            remaining -= len(batch)
+            end_time_ms = batch[0].timestamp * 1000 - 1
+            if len(batch) < limit:
+                break  # sàn không còn dữ liệu cũ hơn
+        return _dedup_sorted(all_candles)[-lookback_bars:]
+
+    # --- Nhánh REALTIME: giữ nguyên logic cache gốc ---
     path = _cache_path(symbol, timeframe, cache_dir)
     cached = [] if force_refresh else _load_cache(path)
 
